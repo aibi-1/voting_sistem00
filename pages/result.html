@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результаты голосования — Выпускной</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); }
+        .live-badge { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-white"> Выпускной 2026</h1>
+            <p class="text-indigo-200 mt-1">Результаты голосования в реальном времени</p>
+        </div>
+        <div class="bg-black/30 backdrop-blur rounded-full px-4 py-2">
+            <span class="text-indigo-200 text-sm">LIVE</span>
+            <span class="live-badge inline-block w-2 h-2 bg-green-400 rounded-full ml-2"></span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4">Диаграмма голосов</h2>
+            <canvas id="votesChart" class="w-full h-80"></canvas>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/20">
+            <h2 class="text-xl font-semibold text-white mb-4">Статистика</h2>
+            <div class="space-y-4">
+                <div class="bg-white/5 rounded-xl p-4">
+                    <div class="text-indigo-200 text-sm">Всего проголосовало</div>
+                    <div class="text-4xl font-bold text-white" id="totalVotes">0</div>
+                </div>
+                <div class="border-t border-white/10 pt-4">
+                    <div class="text-indigo-200 text-sm mb-3">Распределение голосов</div>
+                    <div id="optionsStats" class="space-y-3"></div>
+                </div>
+            </div>
+</div>
+
+<script>
+    // Те же настройки, что в index.html
+    const DEMO_MODE = true;  // true = из localStorage, false = из JSONBin
+    const BIN_ID = 'ТВОЙ_BIN_ID';
+    const API_KEY = 'ТВОЙ_API_KEY';
+    
+    let chart = null;
+    
+    async function fetchData() {
+        if (DEMO_MODE) {
+            const saved = localStorage.getItem('poll_data');
+            if (saved) return JSON.parse(saved);
+            return {
+                total_votes: 0,
+                options: [
+                    { id: 1, text: "Ресторан", votes: 0 },
+                    { id: 2, text: "Пикник в парке", votes: 0 },
+                    { id: 3, text: "Квест по городу", votes: 0 },
+                    { id: 4, text: "Кинотеатр + пицца", votes: 0 }
+                ]
+            };
+        }
+        
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                headers: { 'X-Master-Key': API_KEY }
+            });
+            const json = await res.json();
+            return json.record;
+        } catch(e) {
+            console.error('Ошибка:', e);
+            return null;
+        }
+    }
+    
+    function updateUI(data) {
+        if (!data) return;
+        
+        document.getElementById('totalVotes').innerText = data.total_votes || 0;
+        
+        const total = data.total_votes || 0;
+        const statsContainer = document.getElementById('optionsStats');
+        
+        statsContainer.innerHTML = data.options.map(opt => {
+            const percent = total > 0 ? ((opt.votes / total) * 100).toFixed(1) : 0;
+            return `
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-indigo-200">${opt.text}</span>
+                        <span class="text-white font-medium">${opt.votes} (${percent}%)</span>
+                    </div>
+                    <div class="w-full bg-white/20 rounded-full h-2">
+                        <div class="bg-indigo-400 h-2 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        if (chart) {
+            chart.data.datasets[0].data = data.options.map(opt => opt.votes);
+            chart.update();
+        } else {
+            const ctx = document.getElementById('votesChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.options.map(opt => opt.text),
+                    datasets: [{
+                        label: 'Голоса',
+                        data: data.options.map(opt => opt.votes),
+                        backgroundColor: ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        y: { ticks: { color: 'white', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        x: { ticks: { color: 'white' } }
+                    }
+                }
+            });
+        }
+    }
+    
+    async function refresh() {
+        const data = await fetchData();
+        updateUI(data);
+    }
+    
+    refresh();
+    setInterval(refresh, 3000);
+</script>
+</body>
+</html>

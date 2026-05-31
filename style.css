@@ -1,0 +1,40 @@
+/* Дополнительные стили поверх Tailwind */
+
+/* Анимация для карточек */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Кастомный скролл */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+
+/* Адаптив для мобильных кнопок */
+@media (max-width: 640px) {
+    .vote-btn {
+        padding: 1rem !important;
+        font-size: 1rem !important;
+    }
+}
+
+/* Эффект наведения для кнопок */
+.vote-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}

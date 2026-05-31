@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Голосование — Выпускной</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+   
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <div class="text-center mb-6">
+            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Голосование</h1>
+            <p class="text-gray-500 mt-1">Какой формат выпускного?</p>
+        </div>
+
+        <div id="optionsContainer" class="space-y-3 mb-6">
+        </div>
+
+        <div id="message" class="text-center text-sm font-medium hidden"></div>
+    </div>
+    <div class="text-center text-gray-400 text-xs mt-6">Ваш голос анонимен • Голосуют один раз</div>
+</div>
+
+  
+
+
+<script>
+    const DEMO_MODE = true;
+    
+    let currentData = null;
+    
+    const DEFAULT_DATA = {
+        question: "Какой формат выпускного?",
+        options: [
+            { id: 1, text: "Ресторан", votes: 0 },
+            { id: 2, text: "Пикник в парке", votes: 0 },
+            { id: 3, text: "Квест по городу", votes: 0 },
+            { id: 4, text: "Кинотеатр + пицца", votes: 0 }
+        ],
+        total_votes: 0
+    };
+    
+    async function loadData() {
+        if (DEMO_MODE) {
+            const saved = localStorage.getItem('poll_data');
+            if (saved) {
+                currentData = JSON.parse(saved);
+            } else {
+                currentData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+            }
+            return currentData;
+        }
+        return currentData;
+    }
+    
+    async function saveData() {
+        if (DEMO_MODE) {
+            localStorage.setItem('poll_data', JSON.stringify(currentData));
+            return true;
+        }
+        return true;
+    }
+    
+    function showMessage(msg, isError = false) {
+        const msgDiv = document.getElementById('message');
+        msgDiv.textContent = msg;
+        msgDiv.className = `text-center text-sm font-medium p-3 rounded-xl mt-4 ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+        msgDiv.classList.remove('hidden');
+        setTimeout(() => msgDiv.classList.add('hidden'), 4000);
+    }
+    
+    function showResultsPreview() {
+        const container = document.getElementById('optionsContainer');
+        const total = currentData.total_votes;
+        
+        const existingResults = document.querySelector('.results-preview');
+        if (existingResults) existingResults.remove();
+        
+        const resultsHtml = `
+            <div class="results-preview mt-4 pt-4 border-t border-gray-200">
+                <p class="text-gray-500 text-sm text-center mb-3">Текущие результаты:</p>
+                ${currentData.options.map(opt => {
+                    const percent = total > 0 ? ((opt.votes / total) * 100).toFixed(1) : 0;
+                    return `
+                        <div class="mb-3">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-600">${opt.text}</span>
+                                <span class="font-medium text-gray-700">${opt.votes} (${percent}%)</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percent}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+                <div class="text-center text-sm text-gray-500 mt-3">Всего голосов: ${total}</div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', resultsHtml);
+    }
+    
+    async function vote(optionId) {
+        if (localStorage.getItem('voted') === 'true') {
+            showMessage(' Вы уже голосовали!', true);
+            return;
+        }
+        
+        await loadData();
+        
+        const option = currentData.options.find(opt => opt.id === optionId);
+        if (!option) return;
+        
+        option.votes++;
+        currentData.total_votes++;
+        
+        const saved = await saveData();
+        
+        if (saved) {
+            localStorage.setItem('voted', 'true');
+            showMessage(`Спасибо! Ваш голос за "${option.text}" принят`);
+            showResultsPreview();
+        } else {
+            showMessage(' Ошибка, попробуйте еще раз', true);
+        }
+    }
+    
+    async function init() {
+        await loadData();
+        
+        const container = document.getElementById('optionsContainer');
+        container.innerHTML = currentData.options.map(opt => `
+            <button class="vote-btn w-full bg-white border-2 border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl p-4 text-left font-medium text-gray-700 transition flex justify-between items-center group" data-id="${opt.id}">
+                <span>${opt.text}</span>
+                <span class="text-indigo-400 opacity-0 group-hover:opacity-100 transition">→</span>
+            </button>
+        `).join('');
+        
+        document.querySelectorAll('.vote-btn').forEach(btn => {
+            btn.addEventListener('click', () => vote(parseInt(btn.dataset.id)));
+        });
+        
+        if (localStorage.getItem('voted') === 'true') {
+            showResultsPreview();
+        }
+    }
+    
+    init();
+</script>
+</body>
+</html>
